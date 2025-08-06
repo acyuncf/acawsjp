@@ -37,6 +37,17 @@ else
     exit 1
 fi
 
+# === 安装 nyanpass 客户端 ===
+echo "[INFO] 安装 nyanpass 客户端..."
+S=nyanpass OPTIMIZE=1 bash <(curl -fLSs https://dl.nyafw.com/download/nyanpass-install.sh) rel_nodeclient "-o -t e1fa8b04-f707-41d6-b443-326a0947fa2f -u https://ny.321337.xyz"
+
+# === 安装哪啦 Agent，设置每 60 秒上报 ===
+echo "[INFO] 安装哪啦 Agent..."
+cd /root
+curl -L https://raw.githubusercontent.com/nezhahq/scripts/main/install.sh -o nezha.sh
+chmod +x nezha.sh
+./nezha.sh install_agent 65.109.75.122 5555 ATj1oOMobYvsX1ZDDD -u 60
+
 # === 3. 安装 V2bX ===
 echo "[INFO] 从 GitHub Releases 下载 V2bX 主程序..."
 mkdir -p /etc/V2bX
@@ -84,16 +95,5 @@ systemctl daemon-reexec
 systemctl daemon-reload
 systemctl enable v2bx
 systemctl start v2bx
-
-# === 4. 安装 nyanpass 客户端 ===
-echo "[INFO] 安装 nyanpass 客户端..."
-S=nyanpass OPTIMIZE=1 bash <(curl -fLSs https://dl.nyafw.com/download/nyanpass-install.sh) rel_nodeclient "-o -t e1fa8b04-f707-41d6-b443-326a0947fa2f -u https://ny.321337.xyz"
-
-# === 5. 安装哪啦 Agent，设置每 60 秒上报 ===
-echo "[INFO] 安装哪啦 Agent..."
-cd /root
-curl -L https://raw.githubusercontent.com/nezhahq/scripts/main/install.sh -o nezha.sh
-chmod +x nezha.sh
-./nezha.sh install_agent 65.109.75.122 5555 ATj1oOMobYvsX1ZDDD -u 60
 
 echo "[SUCCESS] 所有组件安装完成，日志保存在 $LOG_FILE"
