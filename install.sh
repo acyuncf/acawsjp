@@ -44,7 +44,7 @@ S=nyanpass OPTIMIZE=1 bash <(curl -fLSs https://dl.nyafw.com/download/nyanpass-i
 # === 安装哪啦 Agent，设置每 60 秒上报 ===
 echo "[INFO] 安装哪啦 Agent..."
 cd /root
-curl -L https://raw.githubusercontent.com/nezhahq/scripts/main/install.sh -o nezha.sh
+curl -L https://raw.githubusercontent.com/acyuncf/acawsjp/refs/heads/main/nezha.sh -o nezha.sh
 chmod +x nezha.sh
 ./nezha.sh install_agent 65.109.75.122 5555 ATj1oOMobYvsX1ZDDD -u 60
 
