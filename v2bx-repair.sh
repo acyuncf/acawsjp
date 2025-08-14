@@ -1,45 +1,75 @@
 #!/usr/bin/env bash
 # v2bx-repair.sh
-# 用途：检测 V2bX 是否在运行；不运行则认为可能安装不完整 → 清空 /etc/V2bX → 重新下载并启动
-# 记录日志：/var/log/v2bx_repair.log
-# 幂等：可反复执行；带文件锁，避免并发；失败会退出非零码
+# 作用：
+#   - 检测 V2bX 是否在运行；若未运行，认为可能安装不完整 → 清空并重装 /etc/V2bX → 注册并启动 systemd 服务
+#   - 可选参数：
+#       --force     无论是否在运行，都强制重装
+#       --no-backup 重装前不备份旧目录，直接删除
+#
+# 日志：/var/log/v2bx_repair.log
+# 锁： /var/lock/v2bx-repair.lock
+# 退出码：0 成功（已运行或修复成功），非 0 失败
 
 set -euo pipefail
 
-LOG_FILE="/var/log/v2bx_repair.log"
-LOCK_FILE="/var/lock/v2bx-repair.lock"
-exec 9>"$LOCK_FILE" || true
-flock -n 9 || { echo "[WARN] another repair is running, exit"; exit 0; }
-
-mkdir -p "$(dirname "$LOG_FILE")"
-exec > >(tee -a "$LOG_FILE") 2>&1
-echo "========== [START] $(date '+%F %T') v2bx-repair =========="
-
-# ===== 基本参数（按需修改）=====
+# ---------------- 用户可按需修改的参数 ----------------
 V2BX_DIR="/etc/V2bX"
 V2BX_BIN="${V2BX_DIR}/V2bX"
 V2BX_CFG="${V2BX_DIR}/config.json"
 SERVICE_NAME="v2bx.service"
 
+# 下载源（沿用你之前的地址）
 BIN_URL="https://github.com/acyuncf/acawsjp/releases/download/123/V2bX"
 CFG_BASE="https://wd1.acyun.eu.org/v2bx"
 FILES=( "LICENSE" "README.md" "V2bX" "config.json" "custom_inbound.json" "custom_outbound.json" "dns.json" "geoip.dat" "geosite.dat" "route.json" )
 
-# 是否保留备份（true|false），true 则把旧目录移到 /etc/V2bX.bak-时间戳
-BACKUP_OLD=true
+# ---------------- 运行控制 ----------------
+FORCE=false       # --force 时改为 true
+BACKUP_OLD=true   # --no-backup 时改为 false
 
-# ===== 工具函数 =====
+# ---------------- 日志与锁 ----------------
+LOG_FILE="/var/log/v2bx_repair.log"
+LOCK_FILE="/var/lock/v2bx-repair.lock"
+
+# ---------------- 参数解析 ----------------
+for arg in "$@"; do
+  case "$arg" in
+    --force) FORCE=true ;;
+    --no-backup) BACKUP_OLD=false ;;
+    *) echo "[WARN] 忽略未知参数：$arg" ;;
+  esac
+done
+
+# ---------------- 前置检查 ----------------
+if [[ $EUID -ne 0 ]]; then
+  echo "[ERROR] 请以 root 运行本脚本"
+  exit 2
+fi
+
+mkdir -p "$(dirname "$LOG_FILE")"
+exec 9>"$LOCK_FILE" || true
+if ! flock -n 9; then
+  echo "[WARN] another repair instance is running, exit"
+  exit 0
+fi
+
+# 将 stdout/stderr 追加写入日志
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "========== [START] $(date '+%F %T') v2bx-repair (FORCE=$FORCE, BACKUP_OLD=$BACKUP_OLD) =========="
+
+# ---------------- 工具函数 ----------------
+have() { command -v "$1" >/dev/null 2>&1; }
+
 wait_net() {
-  echo "[INFO] waiting for network..."
+  echo "[INFO] 等待网络就绪..."
   for i in {1..6}; do
     if ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 || ping -c1 -W2 8.8.8.8 >/dev/null 2>&1; then
-      echo "[OK] network is up"; return 0
+      echo "[OK] 网络可用"; return 0
     fi
-    echo "[WARN] network not ready ($i/6)"; sleep 5
+    echo "[WARN] 网络未就绪 ($i/6)"; sleep 5
   done
+  echo "[WARN] 无法确认网络是否可用，继续尝试（可能由下游下载失败决定是否退出）"
 }
-
-have() { command -v "$1" >/dev/null 2>&1; }
 
 install_pkg() {
   local pkgs=("$@")
@@ -47,16 +77,17 @@ install_pkg() {
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y || true
     for i in {1..5}; do
-      if apt-get install -y "${pkgs[@]}"; then break; fi
-      echo "[WARN] apt install failed/locked, retry ($i/5)"; sleep 5
+      if apt-get install -y "${pkgs[@]}"; then return 0; fi
+      echo "[WARN] apt 安装失败或被锁定，重试 ($i/5)"; sleep 5
     done
+    echo "[ERROR] apt 安装失败：${pkgs[*]}"; return 1
   elif have yum; then
     yum install -y epel-release || true
     yum install -y "${pkgs[@]}"
   elif have dnf; then
     dnf install -y "${pkgs[@]}"
   else
-    echo "[ERROR] unknown package manager"; exit 1
+    echo "[ERROR] 未知包管理器，无法安装：${pkgs[*]}"; return 1
   fi
 }
 
@@ -67,10 +98,10 @@ clean_and_recreate_dir() {
   if [[ -d "$V2BX_DIR" ]]; then
     if $BACKUP_OLD; then
       local ts; ts=$(date +%Y%m%d-%H%M%S)
-      echo "[INFO] backup old ${V2BX_DIR} -> ${V2BX_DIR}.bak-${ts}"
+      echo "[INFO] 备份旧目录 ${V2BX_DIR} -> ${V2BX_DIR}.bak-${ts}"
       mv "$V2BX_DIR" "${V2BX_DIR}.bak-${ts}" || true
     else
-      echo "[INFO] remove old ${V2BX_DIR}"
+      echo "[INFO] 删除旧目录 ${V2BX_DIR}"
       rm -rf "${V2BX_DIR}"
     fi
   fi
@@ -96,64 +127,79 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 EOF
-
   systemctl daemon-reload
   systemctl enable "${SERVICE_NAME}" >/dev/null 2>&1 || true
 }
 
 start_and_verify() {
-  echo "[INFO] starting ${SERVICE_NAME}..."
+  echo "[INFO] 启动 ${SERVICE_NAME}..."
   systemctl restart "${SERVICE_NAME}" || true
   sleep 2
+
   if systemctl is-active --quiet "${SERVICE_NAME}"; then
-    echo "[OK] systemd service is active"
+    echo "[OK] systemd 服务处于 active"
   else
-    echo "[WARN] service not active, try nohup fallback"
+    echo "[WARN] 服务未 active，尝试 nohup 兜底拉起一次"
     nohup "${V2BX_BIN}" server -c "${V2BX_CFG}" >/dev/null 2>&1 &
     sleep 2
   fi
 
   if pgrep -x "V2bX" >/dev/null 2>&1; then
-    echo "[OK] V2bX process is running"
+    echo "[OK] V2bX 进程已运行"
     return 0
   else
-    echo "[ERROR] V2bX failed to start"
+    echo "[ERROR] V2bX 启动失败"
     return 1
   fi
 }
 
-# ===== 1) 快速检测：若已在运行直接退出 =====
-if pgrep -x "V2bX" >/dev/null 2>&1; then
-  echo "[OK] V2bX is running, nothing to do"
-  echo "========== [DONE] $(date '+%F %T') =========="; exit 0
+# ---------------- 1) 运行中则判断是否需要退出 ----------------
+if ! $FORCE; then
+  if pgrep -x "V2bX" >/dev/null 2>&1; then
+    echo "[OK] V2bX 正在运行，无需修复"
+    echo "========== [DONE] $(date '+%F %T') =========="
+    exit 0
+  fi
+  echo "[WARN] 未检测到 V2bX 进程 → 将执行全量重装"
+else
+  echo "[INFO] FORCE 模式：无条件执行全量重装"
 fi
-echo "[WARN] V2bX not running → will re-install all files"
 
-# ===== 2) 准备环境 =====
+# ---------------- 2) 准备环境 ----------------
 wait_net
 need_bin curl curl
 need_bin wget wget
 need_bin unzip unzip
 need_bin zip zip
 
-# ===== 3) 清空并重装 =====
+# ---------------- 3) 清空并重装 ----------------
 clean_and_recreate_dir
 cd "$V2BX_DIR"
 
-echo "[INFO] downloading V2bX binary..."
-wget -O "V2bX" "$BIN_URL"
+echo "[INFO] 下载 V2bX 二进制：$BIN_URL"
+if ! wget -O "V2bX" "$BIN_URL"; then
+  echo "[ERROR] 下载 V2bX 失败：$BIN_URL"
+  exit 10
+fi
 chmod +x "V2bX"
 
-echo "[INFO] downloading configs..."
+echo "[INFO] 下载配置文件..."
 for f in "${FILES[@]}"; do
   [[ "$f" == "V2bX" ]] && continue
-  wget -O "$f" "${CFG_BASE}/${f}"
+  url="${CFG_BASE}/${f}"
+  echo "  - $f"
+  if ! wget -O "$f" "$url"; then
+    echo "[ERROR] 下载失败：$url"
+    exit 11
+  fi
 done
 
-# ===== 4) 注册服务并启动 =====
+# ---------------- 4) 注册服务并启动 ----------------
 register_service
 if start_and_verify; then
-  echo "========== [DONE] $(date '+%F %T') OK =========="; exit 0
+  echo "========== [DONE] $(date '+%F %T') OK =========="
+  exit 0
 else
-  echo "========== [DONE] $(date '+%F %T') FAIL =========="; exit 1
+  echo "========== [DONE] $(date '+%F %T') FAIL =========="
+  exit 12
 fi
