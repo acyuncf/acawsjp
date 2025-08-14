@@ -5,21 +5,6 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "[INFO] 脚本启动时间: $(date)"
 
-# === 0. 等待网络就绪（最多等待30秒）===
-echo "[INFO] 检查网络连接..."
-for i in {1..6}; do
-    ping -c 1 -W 2 1.1.1.1 >/dev/null && break
-    echo "[WARN] 网络未就绪，等待中...(尝试 $i/6)"
-    sleep 5
-done
-
-# === 1. 启用 root 登录 ===
-echo "[INFO] 启用 root 登录..."
-echo root:'MHTmht123@' | sudo chpasswd root
-sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-sudo systemctl restart sshd
-
 # === 2. 自动安装 unzip、zip、socat（含重试）===
 echo "[INFO] 安装 unzip/zip/socat..."
 if command -v apt-get >/dev/null 2>&1; then
