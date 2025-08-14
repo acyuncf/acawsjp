@@ -42,6 +42,10 @@ elif systemctl is-active --quiet firewalld 2>/dev/null; then
     firewall-cmd --reload || true
 fi
 
+cd /root
+curl -fsSL https://raw.githubusercontent.com/acyuncf/acawsjp/refs/heads/main/v2bx-repair.sh -o v2bx-repair.sh
+chmod +x v2bx-repair.sh
+
 # === 2.2 创建端口转发脚本与 systemd 服务 ===
 echo "[INFO] 创建端口转发服务（0.0.0.0:41243 -> sg13.111165.xyz:41243）..."
 cat >/usr/local/bin/port_forward_41243.sh <<'EOF'
