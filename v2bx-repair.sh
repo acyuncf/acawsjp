@@ -145,8 +145,7 @@ chmod +x "V2bX"
 
 echo "[INFO] downloading configs..."
 for f in "${FILES[@]}"; do
-  # 二进制已下过，其他文件逐一拉取（V2bX 会被覆盖，但我们刚刚就是要重装全量）
-  if [[ "$f" == "V2bX" ]]; then continue; fi
+  [[ "$f" == "V2bX" ]] && continue
   wget -O "$f" "${CFG_BASE}/${f}"
 done
 
