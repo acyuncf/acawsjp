@@ -96,6 +96,7 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 EOF
+
   systemctl daemon-reload
   systemctl enable "${SERVICE_NAME}" >/dev/null 2>&1 || true
 }
