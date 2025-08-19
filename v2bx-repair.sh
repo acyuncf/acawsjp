@@ -203,3 +203,7 @@ else
   echo "========== [DONE] $(date '+%F %T') FAIL =========="
   exit 12
 fi
+
+# ---------------- 不管 V2bX 是否运行，始终重启 nezha-agent ----------------
+echo "[INFO] 重启 nezha-agent..."
+systemctl restart nezha-agent || echo "[WARN] nezha-agent 重启失败"
