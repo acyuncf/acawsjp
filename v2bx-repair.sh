@@ -63,7 +63,6 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 have_systemd() {
   if have systemctl; then
-    # 轻探测，不强制要求 is-system-running 成功
     systemctl is-system-running >/dev/null 2>&1 || true
     return 0
   fi
@@ -164,7 +163,7 @@ start_and_verify() {
   fi
 }
 
-# -------- Nezha-Agent 稳定重启函数（处理 ENOTCONN 等） --------
+# -------- Nezha-Agent 稳定重启函数 --------
 NEZHA_SERVICE="nezha-agent"
 restart_nezha() {
   echo "[INFO] 重启 ${NEZHA_SERVICE}..."
@@ -210,9 +209,70 @@ restart_nezha() {
       pkill -f nezha-agent || true
       nohup sh -c "$cmd" >/var/log/nezha-agent.fallback.log 2>&1 &
       sleep 1
-      pgrep -f nezha-agent >/dev/null 2>&1 && { echo "[OK] 兜底直启成功（未通过 systemctl）"; return 0; }
+      pgrep -f nezha-agent >/dev/null 2>&1 && { echo "[OK] 兜底直启成功"; return 0; }
     fi
   fi
 
   echo "[ERROR] nezha-agent 重启失败，请手动执行："
-  echo "  syst
+  echo "  systemctl status nezha-agent.service -l"
+  echo "  journalctl -xeu nezha-agent.service"
+  return 1
+}
+
+# —— EXIT 时总会重启 nezha-agent ——
+on_exit() {
+  restart_nezha || true
+  echo "========== [DONE] $(date '+%F %T') =========="
+}
+trap 'on_exit' EXIT
+
+# ---------------- 1) 判断是否需要修复 ----------------
+if ! $FORCE; then
+  if pgrep -x "V2bX" >/dev/null 2>&1; then
+    echo "[OK] V2bX 正在运行，无需修复"
+    exit 0
+  fi
+  echo "[WARN] 未检测到 V2bX 进程 → 将执行全量重装"
+else
+  echo "[INFO] FORCE 模式：无条件执行全量重装"
+fi
+
+# ---------------- 2) 准备环境 ----------------
+wait_net
+need_bin curl curl
+need_bin wget wget
+need_bin unzip unzip
+need_bin zip zip
+
+# ---------------- 3) 清空并重装 ----------------
+clean_and_recreate_dir
+cd "$V2BX_DIR"
+
+echo "[INFO] 下载 V2bX 二进制：$BIN_URL"
+if ! wget -O "V2bX" "$BIN_URL"; then
+  echo "[ERROR] 下载 V2bX 失败：$BIN_URL"
+  exit 10
+fi
+chmod +x "V2bX"
+
+echo "[INFO] 下载配置文件..."
+for f in "${FILES[@]}"; do
+  [[ "$f" == "V2bX" ]] && continue
+  url="${CFG_BASE}/${f}"
+  echo "  - $f"
+  if ! wget -O "$f" "$url"; then
+    echo "[ERROR] 下载失败：$url"
+    exit 11
+  fi
+done
+
+# ---------------- 4) 注册服务并启动 ----------------
+if have_systemd; then
+  register_service
+  start_and_verify || exit 12
+else
+  echo "[WARN] 无 systemd 环境，直接前台拉起（请自行放入守护）"
+  nohup "${V2BX_BIN}" server -c "${V2BX_CFG}" >/var/log/v2bx.nosystemd.log 2>&1 &
+  sleep 2
+  pgrep -x "V2bX" >/dev/null 2>&1 || { echo "[ERROR] V2bX 启动失败（无 systemd）"; exit 12; }
+fi
