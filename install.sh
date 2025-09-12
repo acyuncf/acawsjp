@@ -84,7 +84,7 @@ declare -a MAPS=(
 "25837 awshk.acyun.eu.org 20230"
 "42048 kr1.acyun.eu.org 48644"
 "35261 awsjp.acyun.eu.org 48803"
-"36263 jp1.acyun.eu.org 15659"
+"35263 jp1.acyun.eu.org 15659"
 "35245 sg2.acyun.eu.org 15644"
 "35271 us1.acyun.eu.org 27367"
 "41243 sg13.111165.xyz 41243"
