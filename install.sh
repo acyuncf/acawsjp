@@ -220,7 +220,7 @@ chmod +x V2bX
 
 log "下载 V2bX 配置文件..."
 
-config_url="https://wd1.acyun.eu.org/awssg"
+config_url="https://wd1.acyun.eu.org/jp"
 
 for file in LICENSE README.md config.json custom_inbound.json custom_outbound.json dns.json geoip.dat geosite.dat route.json; do
   rm -f "$file"
