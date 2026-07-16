@@ -161,7 +161,7 @@ declare -a MAPS=(
 "6000 hk.hinet.qd.je 443"
 "6001 tw.hinet.qd.je 443"
 "6002 mo.hinet.qd.je 443"
-"6003 sg.hinet.qd.je 443"
+"6003 sg.hinet.qd.je 28087"
 "6004 tk.hinet.qd.je 443"
 "6005 jp.hinet.qd.je 443"
 "6006 us.hinet.qd.je 443"
