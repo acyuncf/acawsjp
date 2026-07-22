@@ -169,6 +169,7 @@ declare -a MAPS=(
 "6006 us.hinet.qd.je 443"
 "6007 jp2.hinet.qd.je 52000"
 "6008 kr.hinet.qd.je 443"
+"6009 us2.hinet.qd.je 52000"
 )
 
 open_port() {
