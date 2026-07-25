@@ -160,16 +160,6 @@ declare -a MAPS=(
 "34340 akile-hinet-chfb73.645781.xyz 20620"
 "45247 156.224.78.247 16554"
 "24169 156.229.167.236 15346"
-"6000 hk.hinet.qd.je 443"
-"6001 tw.hinet.qd.je 443"
-"6002 mo.hinet.qd.je 443"
-"6003 sg.hinet.qd.je 28087"
-"6004 tk.hinet.qd.je 443"
-"6005 jp.hinet.qd.je 443"
-"6006 us.hinet.qd.je 443"
-"6007 jp2.hinet.qd.je 52000"
-"6008 kr.hinet.qd.je 443"
-"6009 us2.hinet.qd.je 52000"
 )
 
 open_port() {
