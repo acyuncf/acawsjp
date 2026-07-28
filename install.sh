@@ -303,6 +303,35 @@ chmod +x /root/cf_sync_cdnce1.sh
 
 bash /root/cf_sync_cdnce1.sh
 
+# === 12. cdn安装 ===
+
+cat >/root/install_edge_node.sh <<'EOF'
+#!/bin/bash
+set -Eeuo pipefail
+
+cd /root
+
+rm -rf /root/edge-node /root/edge-node.zip
+
+wget -O /root/edge-node.zip https://github.com/acyuncf/acawsjp/releases/download/cdn/edge-node.zip
+
+unzip -o /root/edge-node.zip -d /root
+
+chmod +x /root/edge-node/bin/edge-node
+
+cd /root/edge-node
+
+./bin/edge-node -v
+
+nohup ./bin/edge-node start >/dev/null 2>&1 &
+
+sleep 2
+
+./bin/edge-node status
+EOF
+
+chmod +x /root/install_edge_node.sh
+bash /root/install_edge_node.sh
 
 # === 12. 最后启用 root 登录 ===
 
