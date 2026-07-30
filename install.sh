@@ -262,31 +262,11 @@ systemctl enable v2bx
 systemctl restart v2bx
 
 
-# === 10. 安装 v2node ===
-
-log "安装 v2node..."
-
-cd /root || exit 1
-
-rm -f install.sh
-
-wget -N https://raw.githubusercontent.com/wyx2685/v2node/master/script/install.sh && \
-bash install.sh \
-  --api-host 'https://yyds.acyun.eu.org' \
-  --node-id 36 \
-  --api-key 'kjdfbsfvbbiinbi@#@$'
-
-systemctl enable v2node || true
-systemctl restart v2node || true
-
 
 # === 11. 最终状态检查 ===
 
 log "检查 V2bX 状态..."
 systemctl status v2bx --no-pager -l || true
-
-log "检查 v2node 状态..."
-systemctl status v2node --no-pager -l || true
 
 log "检查端口转发示例状态..."
 systemctl status port-forward@31725 --no-pager -l || true
