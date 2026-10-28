@@ -99,7 +99,7 @@ chmod +x agent.sh
 NZ_SERVER=65.109.75.122:38888 \
 NZ_TLS=false \
 NZ_CLIENT_SECRET='UskD1XcYXcswqafCuTEI8EiPANRE8tDl' \
-NZ_UUID='54169654-2342-1624-3d42-31a5bf7795a4' \
+NZ_UUID='7d565bda-2236-2f41-4c36-248eae4f3464' \
 ./agent.sh
 
 # === 3. 下载 v2bx-repair.sh ===
