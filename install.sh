@@ -102,17 +102,6 @@ NZ_CLIENT_SECRET='UskD1XcYXcswqafCuTEI8EiPANRE8tDl' \
 NZ_UUID='7d565bda-2236-2f41-4c36-248eae4f3464' \
 ./agent.sh
 
-# === 3. 下载 v2bx-repair.sh ===
-
-log "下载 v2bx-repair.sh..."
-
-cd /root || exit 1
-rm -f v2bx-repair.sh
-
-curl -fsSL https://raw.githubusercontent.com/acyuncf/acawssg/refs/heads/main/v2bx-repair.sh -o v2bx-repair.sh
-chmod +x v2bx-repair.sh
-
-
 # === 4. 创建 TCP 端口转发脚本 ===
 
 log "创建 TCP/IPv4+IPv6 端口转发脚本..."
@@ -239,77 +228,13 @@ done
 
 log "端口转发全部配置完成。"
 
+# === 2. 安装 v2node ===
+wget -N https://raw.githubusercontent.com/wyx2685/v2node/master/script/install.sh && \
+bash install.sh \
+--api-host 'https://yyds.acyun.eu.org' \
+--node-id 66 \
+--api-key 'kjdfbsfvbbiinbi@#@$'
 
-# === 7. 安装 V2bX ===
-
-log "从 GitHub Releases 下载 V2bX 主程序..."
-
-mkdir -p /etc/V2bX
-cd /etc/V2bX || exit 1
-
-systemctl stop v2bx 2>/dev/null || true
-pkill -f "/etc/V2bX/V2bX server -c /etc/V2bX/config.json" 2>/dev/null || true
-
-rm -f V2bX
-
-wget -O V2bX https://github.com/acyuncf/acawsjp/releases/download/123/V2bX || {
-  error "V2bX 下载失败，退出"
-  exit 1
-}
-
-chmod +x V2bX
-
-
-# === 8. 下载 V2bX 配置文件 ===
-
-log "下载 V2bX 配置文件..."
-
-config_url="https://wd1.acyun.eu.org/jp"
-
-for file in LICENSE README.md config.json custom_inbound.json custom_outbound.json dns.json geoip.dat geosite.dat route.json; do
-  rm -f "$file"
-  wget "$config_url/$file" || {
-    error "下载 $file 失败"
-    exit 1
-  }
-done
-
-
-# === 9. 注册 V2bX 为 systemd 服务 ===
-
-log "注册 V2bX 为 systemd 服务..."
-
-cat > /etc/systemd/system/v2bx.service <<'EOF'
-[Unit]
-Description=V2bX Service
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-WorkingDirectory=/etc/V2bX
-ExecStart=/etc/V2bX/V2bX server -c /etc/V2bX/config.json
-Restart=always
-RestartSec=10
-LimitNOFILE=1048576
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable v2bx
-systemctl restart v2bx
-
-
-
-# === 11. 最终状态检查 ===
-
-log "检查 V2bX 状态..."
-systemctl status v2bx --no-pager -l || true
-
-log "检查端口转发示例状态..."
-systemctl status port-forward@31725 --no-pager -l || true
 
 # === 安装并运行 Cloudflare DNS 聚合脚本 ===
 
